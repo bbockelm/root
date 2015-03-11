@@ -31,13 +31,15 @@ if(cocoa)
 endif()
 add_subdirectory(zip)
 add_subdirectory(lzma)
+add_subdirectory(lz4)
 add_subdirectory(base)
 
 set(objectlibs $<TARGET_OBJECTS:Base>
                $<TARGET_OBJECTS:Clib>
                $<TARGET_OBJECTS:Cont>
-               $<TARGET_OBJECTS:Lzma>
                $<TARGET_OBJECTS:Zip>
+               $<TARGET_OBJECTS:Lzma>
+               $<TARGET_OBJECTS:Lz4>
                $<TARGET_OBJECTS:MetaUtils>
                $<TARGET_OBJECTS:Meta>
                $<TARGET_OBJECTS:TextInput>
@@ -101,7 +103,7 @@ add_subdirectory(utils)
 ROOT_LINKER_LIBRARY(Core
                     $<TARGET_OBJECTS:BaseTROOT>
                     ${objectlibs}
-                    LIBRARIES ${PCRE_LIBRARIES} ${LZMA_LIBRARIES} ${ZLIB_LIBRARIES}
+                    LIBRARIES ${PCRE_LIBRARIES} ${LZMA_LIBRARIES} ${LZ4_LIBRARIES} ${ZLIB_LIBRARY}
                               ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${corelinklibs} )
 
 if(cling)
@@ -112,6 +114,9 @@ if(builtin_pcre)
 endif()
 if(builtin_lzma)
   ROOT_ADD_BUILTIN_DEPENDENCIES(Core LZMA)
+endif()
+if(builtin_lz4)
+  ROOT_ADD_BUILTIN_DEPENDENCIES(Core LZ4)
 endif()
 
 #----------------------------------------------------------------------------------------
