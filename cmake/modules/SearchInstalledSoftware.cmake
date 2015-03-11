@@ -773,6 +773,20 @@ if(dcache)
   endif()
 endif()
 
+#---Check for HDFS-------------------------------------------------------------------
+if(hdfs)
+  find_package(HDFS)
+  if(NOT HDFS_FOUND)
+    if(fail-on-missing)
+      message(FATAL_ERROR "HDFS library not found and is required (hdfs option enabled)")
+    else()
+      message(STATUS "HDFS library not found. Set variable HDFS_DIR to point to your HDFS installation")
+      message(STATUS "For the time being switching OFF 'hdfs' option")
+      set(hdfs OFF CACHE BOOL "" FORCE)
+    endif()
+  endif()
+endif()
+
 #---Check for Ldap--------------------------------------------------------------------
 if(ldap)
   find_package(Ldap)
@@ -857,7 +871,7 @@ if(vc)
 endif()
 
 #---Report non implemented options---------------------------------------------------
-foreach(opt afs chirp clarens glite hdfs pch peac sapdb srp geocad)
+foreach(opt afs chirp clarens glite pch peac sapdb srp geocad)
   if(${opt})
     message(STATUS ">>> Option '${opt}' not implemented yet! Signal your urgency to pere.mato@cern.ch")
     set(${opt} OFF CACHE BOOL "" FORCE)

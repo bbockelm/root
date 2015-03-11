@@ -88,17 +88,10 @@ THDFSFile::THDFSFile(const char *path, Option_t *option,
       fOption = "READ";
    }
 
-   Bool_t has_authn = kTRUE;
-
-   if (has_authn) {
-      UserGroup_t *ugi = gSystem->GetUserInfo(0);
-      const char *user = (ugi->fUser).Data();
-      const char * groups[1] = {(ugi->fGroup.Data())};
-      fFS = hdfsConnectAsUser("default", 0, user, groups, 1);
-      delete ugi;
-   } else {
-      fFS = hdfsConnect("default", 0);
-   }
+   UserGroup_t *ugi = gSystem->GetUserInfo(0);
+   const char *user = (ugi->fUser).Data();
+   fFS = hdfsConnectAsUser("default", 0, user);
+   delete ugi;
 
    if (fFS == 0) {
       SysError("THDFSFile", "HDFS client for %s cannot open the filesystem",
@@ -167,7 +160,7 @@ Int_t THDFSFile::SysRead(Int_t, void *buf, Int_t len)
    // See documentation for TFile::SysRead().
 
    TRACE("READ")
-   tSize num_read = hdfsPread(fFS, (hdfsFile)fHdfsFH, fSysOffset, buf, len);
+   tSize num_read = hdfsPread(static_cast<hdfsFS>(fFS), (hdfsFile)fHdfsFH, fSysOffset, buf, len);
    fSysOffset += len;
    if (num_read < 0) {
       gSystem->SetErrorStr(strerror(errno));
@@ -192,7 +185,7 @@ Long64_t THDFSFile::SysSeek(Int_t, Long64_t offset, Int_t whence)
          return -1;
       }
       if (fSize == -1) {
-         hdfsFileInfo *info = hdfsGetPathInfo(fFS, fPath);
+         hdfsFileInfo *info = hdfsGetPathInfo(static_cast<hdfsFS>(fFS), fPath);
          if (info != 0) {
             fSize = info->mSize;
             free(info);
@@ -224,7 +217,7 @@ Int_t THDFSFile::SysOpen(const char * pathname, Int_t flags, UInt_t)
       SysError("THDFSFile", "Unable to allocate memory for path.");
    }
    strlcpy(fPath, file,path_size+1);
-   if ((fHdfsFH = hdfsOpenFile(fFS, fPath, flags, 0, 0, 0)) == 0) {
+   if ((fHdfsFH = hdfsOpenFile(static_cast<hdfsFS>(fFS), fPath, flags, 0, 0, 0)) == 0) {
       SysError("THDFSFile", "Unable to open file %s in HDFS", pathname);
       return -1;
    }
@@ -236,7 +229,7 @@ Int_t THDFSFile::SysClose(Int_t)
 {
    // Close the file in HDFS.
 
-   int result = hdfsCloseFile(fFS, (hdfsFile)fHdfsFH);
+   int result = hdfsCloseFile(static_cast<hdfsFS>(fFS), (hdfsFile)fHdfsFH);
    fFS = 0;
    fHdfsFH = 0;
    return result;
@@ -258,7 +251,7 @@ Int_t THDFSFile::SysStat(Int_t, Long_t* id, Long64_t* size, Long_t* flags, Long_
 
    *id = ::Hash(fPath);
 
-   hdfsFileInfo *info = hdfsGetPathInfo(fFS, fPath);
+   hdfsFileInfo *info = hdfsGetPathInfo(static_cast<hdfsFS>(fFS), fPath);
    if (info != 0) {
       fSize = info->mSize;
       *size = fSize;
@@ -301,17 +294,10 @@ THDFSSystem::THDFSSystem() : TSystem("-hdfs", "HDFS Helper System")
 
    SetName("hdfs");
 
-   Bool_t has_authn = kTRUE;
-
-   if (has_authn) {
-      UserGroup_t *ugi = gSystem->GetUserInfo(0);
-      const char *user = (ugi->fUser).Data();
-      const char * groups[1] = {(ugi->fGroup.Data())};
-      fFH = hdfsConnectAsUser("default", 0, user, groups, 1);
-      delete ugi;
-   } else {
-      fFH = hdfsConnect("default", 0);
-   }
+   UserGroup_t *ugi = gSystem->GetUserInfo(0);
+   const char *user = (ugi->fUser).Data();
+   fFH = hdfsConnectAsUser("default", 0, user);
+   delete ugi;
 
    if (fFH == 0) {
       SysError("THDFSSystem", "HDFS client cannot open the filesystem");
@@ -339,7 +325,7 @@ Int_t THDFSSystem::MakeDirectory(const char * path)
    }
 
    if (R__HDFS_ALLOW_CHANGES == kTRUE) {
-      return hdfsCreateDirectory(fFH, path);
+      return hdfsCreateDirectory(static_cast<hdfsFS>(fFH), path);
    } else {
       return -1;
    }
@@ -366,14 +352,14 @@ void *THDFSSystem::OpenDirectory(const char * path)
 */
 
    hdfsFileInfo * dir = 0;
-   if ((dir = hdfsGetPathInfo(fFH, path)) == 0) {
+   if ((dir = hdfsGetPathInfo(static_cast<hdfsFS>(fFH), path)) == 0) {
       return 0;
    }
    if (dir->mKind != kObjectKindDirectory) {
       return 0;
    }
 
-   fDirp = (void *)hdfsListDirectory(fFH, path, &fDirEntries);
+   fDirp = (void *)hdfsListDirectory(static_cast<hdfsFS>(fFH), path, &fDirEntries);
    fDirCtr = 0;
 
    fUrlp = new TUrl[fDirEntries];
@@ -449,7 +435,7 @@ Int_t THDFSSystem::GetPathInfo(const char *path, FileStat_t &buf)
       Error("GetPathInfo", "No filesystem handle (should never happen)");
       return 1;
    }
-   hdfsFileInfo *fileInfo = hdfsGetPathInfo(fFH, path);
+   hdfsFileInfo *fileInfo = hdfsGetPathInfo(static_cast<hdfsFS>(fFH), path);
 
    if (fileInfo == 0)
       return 1;
@@ -481,7 +467,7 @@ Bool_t THDFSSystem::AccessPathName(const char *path, EAccessMode mode)
       return kTRUE;
    }
 
-   if (hdfsExists(fFH, path) == 0)
+   if (hdfsExists(static_cast<hdfsFS>(fFH), path) == 0)
       return kFALSE;
    else
       return kTRUE;
@@ -499,7 +485,7 @@ Int_t THDFSSystem::Unlink(const char * path)
    }
 
    if (R__HDFS_ALLOW_CHANGES == kTRUE) {
-      return hdfsDelete(fFH, path);
+      return hdfsDelete(static_cast<hdfsFS>(fFH), path, 0);
    } else {
       return -1;
    }
