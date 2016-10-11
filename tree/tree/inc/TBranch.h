@@ -40,6 +40,10 @@
 #include "TDataType.h"
 #endif
 
+#ifdef R__USE_IMT
+#include "tbb/task_group.h"
+#endif
+
 class TTree;
 class TBasket;
 class TLeaf;
@@ -103,6 +107,12 @@ protected:
 
    Bool_t      fSkipZip;          ///<! After being read, the buffer will not be unzipped.
 
+#ifdef R__USE_IMT
+   const Bool_t               fUseIMT;             ///<! Whether IMT is enabled for this branch.
+   mutable tbb::task_group    fFlushTasks;         ///<! Currently running tasks for flushing baskets.  Should be at most 1 task.
+   mutable std::atomic<Int_t> fLastFlushResult{0}; ///<! Result from the last flushing operation.
+#endif
+
    typedef void (TBranch::*ReadLeaves_t)(TBuffer &b);
    ReadLeaves_t fReadLeaves;      ///<! Pointer to the ReadLeaves implementation to use.
    typedef void (TBranch::*FillLeaves_t)(TBuffer &b);
@@ -122,22 +132,35 @@ protected:
    TString  GetRealFileName() const;
 
 private:
+   void     ExpandBasketArrays();
+   Int_t    WriteBasketInternal(TBasket* basket, Int_t where);
    Int_t FillEntryBuffer(TBasket* basket,TBuffer* buf, Int_t& lnew);
    TBranch(const TBranch&);             // not implemented
    TBranch& operator=(const TBranch&);  // not implemented
 
+   void WaitForFlush() const {
+#ifdef R__USE_IMT
+      if (fUseIMT) {
+         fFlushTasks.wait();
+         Int_t last_result = fLastFlushResult.exchange(0, std::memory_order_release);
+         if (last_result < 0) {
+            Error("WriteBaskets", "Previous WriteBasket call has failed.\n");
+         }
+      }
+#endif
+   }
+
 public:
    TBranch();
-   TBranch(TTree *tree, const char *name, void *address, const char *leaflist, Int_t basketsize=32000, Int_t compress=-1);
-   TBranch(TBranch *parent, const char *name, void *address, const char *leaflist, Int_t basketsize=32000, Int_t compress=-1);
-   virtual ~TBranch();
+   TBranch(TTree *tree, const char *name, void *address, const char *leaflist, Int_t basketsize=32000, Int_t compress=-1, Bool_t useimt=true);
+   TBranch(TBranch *parent, const char *name, void *address, const char *leaflist, Int_t basketsize=32000, Int_t compress=-1, Bool_t useimt=true);
+   virtual ~TBranch() noexcept;
 
    virtual void      AddBasket(TBasket &b, Bool_t ondisk, Long64_t startEntry);
    virtual void      AddLastBasket(Long64_t startEntry);
    virtual void      Browse(TBrowser *b);
    virtual void      DeleteBaskets(Option_t* option="");
    virtual void      DropBaskets(Option_t *option = "");
-           void      ExpandBasketArrays();
    virtual Int_t     Fill();
    virtual TBranch  *FindBranch(const char *name);
    virtual TLeaf    *FindLeaf(const char *name);

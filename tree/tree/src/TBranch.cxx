@@ -106,6 +106,9 @@ TBranch::TBranch()
 , fTransientBuffer(0)
 , fBrowsables(0)
 , fSkipZip(kFALSE)
+#ifdef R__USE_IMT
+, fUseIMT(kTRUE)
+#endif
 , fReadLeaves(&TBranch::ReadLeavesImpl)
 , fFillLeaves(&TBranch::FillLeavesImpl)
 {
@@ -171,7 +174,7 @@ TBranch::TBranch()
 ///
 ///    Note that this function is invoked by TTree::Branch
 
-TBranch::TBranch(TTree *tree, const char* name, void* address, const char* leaflist, Int_t basketsize, Int_t compress)
+TBranch::TBranch(TTree *tree, const char* name, void* address, const char* leaflist, Int_t basketsize, Int_t compress, Bool_t useIMT)
 : TNamed(name, leaflist)
 , TAttFill(0, 1001)
 , fCompress(compress)
@@ -209,9 +212,15 @@ TBranch::TBranch(TTree *tree, const char* name, void* address, const char* leafl
 , fTransientBuffer(0)
 , fBrowsables(0)
 , fSkipZip(kFALSE)
+#ifdef R__USE_IMT
+, fUseIMT(true)
+#endif
 , fReadLeaves(&TBranch::ReadLeavesImpl)
 , fFillLeaves(&TBranch::FillLeavesImpl)
 {
+#ifndef R__USE_IMT
+   (void)(useIMT);
+#endif
    Init(name,leaflist,compress);
 }
 
@@ -221,7 +230,7 @@ TBranch::TBranch(TTree *tree, const char* name, void* address, const char* leafl
 /// See documentation for
 /// TBranch::TBranch(TTree *, const char *, void *, const char *, Int_t, Int_t)
 
-TBranch::TBranch(TBranch *parent, const char* name, void* address, const char* leaflist, Int_t basketsize, Int_t compress)
+TBranch::TBranch(TBranch *parent, const char* name, void* address, const char* leaflist, Int_t basketsize, Int_t compress, Bool_t useIMT)
 : TNamed(name, leaflist)
 , TAttFill(0, 1001)
 , fCompress(compress)
@@ -259,9 +268,15 @@ TBranch::TBranch(TBranch *parent, const char* name, void* address, const char* l
 , fTransientBuffer(0)
 , fBrowsables(0)
 , fSkipZip(kFALSE)
+#ifdef R__USE_IMT
+, fUseIMT(true)
+#endif
 , fReadLeaves(&TBranch::ReadLeavesImpl)
 , fFillLeaves(&TBranch::FillLeavesImpl)
 {
+#ifndef R__USE_IMT
+   (void)useIMT;
+#endif
    Init(name,leaflist,compress);
 }
 
@@ -401,8 +416,10 @@ void TBranch::Init(const char* name, const char* leaflist, Int_t compress)
 ////////////////////////////////////////////////////////////////////////////////
 /// Destructor.
 
-TBranch::~TBranch()
+TBranch::~TBranch() noexcept
 {
+   WaitForFlush();
+
    delete fBrowsables;
    fBrowsables = 0;
 
@@ -496,6 +513,8 @@ TBuffer* TBranch::GetTransientBuffer(Int_t size)
 
 void TBranch::AddBasket(TBasket& b, Bool_t ondisk, Long64_t startEntry)
 {
+   WaitForFlush();
+
    TBasket *basket = &b;
 
    basket->SetBranch(this);
@@ -562,6 +581,8 @@ void TBranch::AddBasket(TBasket& b, Bool_t ondisk, Long64_t startEntry)
 
 void TBranch::AddLastBasket(Long64_t startEntry)
 {
+   WaitForFlush();
+
    if (fWriteBasket >= fMaxBaskets) {
       ExpandBasketArrays();
    }
@@ -609,6 +630,8 @@ void TBranch::Browse(TBrowser* b)
 
 void TBranch::DeleteBaskets(Option_t* option)
 {
+   WaitForFlush();
+
    TString opt = option;
    opt.ToLower();
    TFile *file = GetFile(0);
@@ -640,6 +663,8 @@ void TBranch::DeleteBaskets(Option_t* option)
 
 void TBranch::DropBaskets(Option_t* options)
 {
+   WaitForFlush();
+
    Bool_t all = kFALSE;
    if (options && options[0]) {
       TString opt = options;
@@ -736,6 +761,8 @@ void TBranch::ExpandBasketArrays()
 
 Int_t TBranch::Fill()
 {
+   WaitForFlush();
+
    if (TestBit(kDoNotProcess)) {
       return 0;
    }
@@ -796,8 +823,19 @@ Int_t TBranch::Fill()
       if (fTree->TestBit(TTree::kCircular)) {
          return nbytes;
       }
-      Int_t nout = WriteBasket(basket,fWriteBasket);
-      return (nout >= 0) ? nbytes : -1;
+#ifdef R__USE_IMT
+      if (fUseIMT) {
+         fFlushTasks.run([=]() {
+            Int_t write_outcome = WriteBasketInternal(basket, fWriteBasket);
+            fLastFlushResult.store(write_outcome, std::memory_order_release);
+         });
+         return nbytes;
+      } else
+#endif
+      {
+         Int_t nout = WriteBasketInternal(basket,fWriteBasket);
+         return (nout >= 0) ? nbytes : -1;
+      }
    }
    return nbytes;
 }
@@ -807,6 +845,8 @@ Int_t TBranch::Fill()
 
 Int_t TBranch::FillEntryBuffer(TBasket* basket, TBuffer* buf, Int_t& lnew)
 {
+    WaitForFlush();
+
    Int_t nbytes = 0;
    Int_t objectStart = 0;
    Int_t last = 0;
@@ -822,7 +862,7 @@ Int_t TBranch::FillEntryBuffer(TBasket* basket, TBuffer* buf, Int_t& lnew)
          // If the basket already contains entry we need to close it
          // out. (This is because we can only transfer full compressed
          // buffer)
-         WriteBasket(basket,fWriteBasket);
+         WriteBasketInternal(basket,fWriteBasket);
          // And restart from scratch
          return Fill();
       }
@@ -1007,6 +1047,8 @@ TLeaf* TBranch::FindLeaf(const char* searchname)
 
 Int_t TBranch::FlushBaskets()
 {
+   WaitForFlush();
+
    UInt_t nerror = 0;
    Int_t nbytes = 0;
 
@@ -1066,7 +1108,7 @@ Int_t TBranch::FlushOneBasket(UInt_t ibasket)
             if (basket->GetBufferRef()->IsReading()) {
                basket->SetWriteMode();
             }
-            nbytes = WriteBasket(basket,ibasket);
+            nbytes = WriteBasketInternal(basket,ibasket);
 
          } else {
             // If the basket is empty or has already been written.
@@ -1094,6 +1136,8 @@ Int_t TBranch::FlushOneBasket(UInt_t ibasket)
 
 TBasket* TBranch::GetBasket(Int_t basketnumber)
 {
+   WaitForFlush();
+
    // This counter in the sequential case collects errors coming also from
    // different files (suppose to have a program reading f1.root, f2.root ...)
    // In the mt case, it is made atomic: it safely collects errors from
@@ -1216,6 +1260,8 @@ const char* TBranch::GetIconName() const
 
 Int_t TBranch::GetEntry(Long64_t entry, Int_t getall)
 {
+   WaitForFlush();
+
    // Remember which entry we are reading.
    fReadEntry = entry;
 
@@ -1308,6 +1354,8 @@ Int_t TBranch::GetEntry(Long64_t entry, Int_t getall)
 
 Int_t TBranch::GetEntryExport(Long64_t entry, Int_t /*getall*/, TClonesArray* li, Int_t nentries)
 {
+   WaitForFlush();
+
    // Remember which entry we are reading.
    fReadEntry = entry;
 
@@ -1434,6 +1482,8 @@ TFile* TBranch::GetFile(Int_t mode)
 
 TBasket* TBranch::GetFreshBasket()
 {
+   WaitForFlush();
+
    TBasket *basket = 0;
    if (GetTree()->MemoryFull(0)) {
       if (fNBaskets==1) {
@@ -1609,6 +1659,8 @@ TBranch* TBranch::GetSubBranch(const TBranch* child) const
 
 Long64_t TBranch::GetTotalSize(Option_t * /*option*/) const
 {
+   WaitForFlush();
+
    TObjArray &baskets( const_cast<TObjArray&>(fBaskets) );
    TBasket *writebasket = 0;
    if (fNBaskets == 1) {
@@ -1716,6 +1768,8 @@ void TBranch::KeepCircular(Long64_t maxEntries)
 
 Int_t TBranch::LoadBaskets()
 {
+   WaitForFlush();
+
    Int_t nimported = 0;
    Int_t nbaskets = fWriteBasket;
    TFile *file = GetFile(0);
@@ -1745,6 +1799,8 @@ Int_t TBranch::LoadBaskets()
 
 void TBranch::Print(Option_t*) const
 {
+   WaitForFlush();
+
    const int kLINEND = 77;
    Float_t cx = 1;
 
@@ -1895,6 +1951,8 @@ void TBranch::Refresh(TBranch* b)
 {
    if (b==0) return;
 
+   WaitForFlush();
+
    fEntryOffsetLen = b->fEntryOffsetLen;
    fWriteBasket    = b->fWriteBasket;
    fEntryNumber    = b->fEntryNumber;
@@ -1942,6 +2000,8 @@ void TBranch::Refresh(TBranch* b)
 
 void TBranch::Reset(Option_t*)
 {
+   WaitForFlush();
+
    fReadBasket = 0;
    fReadEntry = -1;
    fFirstBasketEntry = -1;
@@ -1983,6 +2043,8 @@ void TBranch::Reset(Option_t*)
 
 void TBranch::ResetAfterMerge(TFileMergeInfo *)
 {
+   WaitForFlush();
+
    fReadBasket       = 0;
    fReadEntry        = -1;
    fFirstBasketEntry = -1;
@@ -2036,6 +2098,8 @@ void TBranch::ResetAfterMerge(TFileMergeInfo *)
 
 void TBranch::ResetAddress()
 {
+   WaitForFlush();
+
    fAddress = 0;
 
    //  Reset last read entry number, we have will had new user object now.
@@ -2114,6 +2178,8 @@ void TBranch::SetAutoDelete(Bool_t autodel)
 
 void TBranch::SetBasketSize(Int_t buffsize)
 {
+   WaitForFlush();
+
    Int_t minsize = 100 + fName.Length();
    if (buffsize < minsize+fEntryOffsetLen) buffsize = minsize+fEntryOffsetLen;
    fBasketSize = buffsize;
@@ -2130,6 +2196,8 @@ void TBranch::SetBasketSize(Int_t buffsize)
 
 void TBranch::SetBufferAddress(TBuffer* buf)
 {
+   WaitForFlush();
+
    // Check this is possible
    if ( (fNleaves != 1)
        || (strcmp("TLeafObject",fLeaves.UncheckedAt(0)->ClassName())!=0) ) {
@@ -2248,6 +2316,8 @@ void TBranch::SetEntries(Long64_t entries)
 
 void TBranch::SetFile(TFile* file)
 {
+   WaitForFlush();
+
    if (file == 0) file = fTree->GetCurrentFile();
    fDirectory = (TDirectory*)file;
    if (file == fTree->GetCurrentFile()) fFileName = "";
@@ -2293,6 +2363,8 @@ void TBranch::SetFile(TFile* file)
 
 void TBranch::SetFile(const char* fname)
 {
+   WaitForFlush();
+
    fFileName  = fname;
    fDirectory = 0;
 
@@ -2341,6 +2413,8 @@ void TBranch::SetStatus(Bool_t status)
 
 void TBranch::Streamer(TBuffer& b)
 {
+   WaitForFlush();
+
    if (b.IsReading()) {
       UInt_t R__s, R__c;
       fTree = 0; // Will be set by TTree::Streamer
@@ -2576,6 +2650,17 @@ void TBranch::Streamer(TBuffer& b)
 
 Int_t TBranch::WriteBasket(TBasket* basket, Int_t where)
 {
+   WaitForFlush();
+   return WriteBasketInternal(basket, where);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// Write the current basket to disk; actual implementation of WriteBasket and
+/// should only be called internally by TBranch, when we are certain there are
+/// no outstanding internal writes.
+Int_t TBranch::WriteBasketInternal(TBasket* basket, Int_t where)
+{
+
    Int_t nevbuf = basket->GetNevBuf();
    if (fEntryOffsetLen > 10 &&  (4*nevbuf) < fEntryOffsetLen ) {
       // Make sure that the fEntryOffset array does not stay large unnecessarily.
@@ -2662,6 +2747,8 @@ void TBranch::SetupAddresses()
 
 void TBranch::UpdateFile()
 {
+   WaitForFlush();
+
    TFile *file = fTree->GetCurrentFile();
    if (fFileName.Length() == 0) {
       fDirectory = file;

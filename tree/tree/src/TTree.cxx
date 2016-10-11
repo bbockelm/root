@@ -4491,12 +4491,14 @@ Int_t TTree::Fill()
    if (!fDirectory) {
       return nbytes;
    }
+/*
    TFile* file = fDirectory->GetFile();
    if (file && (file->GetEND() > fgMaxTreeSize)) {
       if (fDirectory == (TDirectory*) file) {
          ChangeFile(file);
       }
    }
+*/
    if (nerror) {
       return -1;
    }
