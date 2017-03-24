@@ -135,6 +135,7 @@ public:
       kEntryChainFileError, ///< problem in opening a chain's file
       kEntryDictionaryError, ///< problem reading dictionary info from tree
       kEntryLast, ///< last entry was reached
+      kEntryBadReader, ///< One of the readers was not successfully initialized.
    };
 
    TTreeReader():
