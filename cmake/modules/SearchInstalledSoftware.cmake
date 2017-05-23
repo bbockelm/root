@@ -242,8 +242,8 @@ if(builtin_lz4)
   endif()
   ExternalProject_Add(
     LZ4
-    URL ${CMAKE_SOURCE_DIR}/core/lz4/src/lz4-${lz4_version}.tar.gz
-    URL_MD5 0601f6b8477209d07db33d504feb6ac4
+    URL https://github.com/lz4/lz4/archive/v1.7.5.tar.gz
+    URL_MD5 c9610c5ce97eb431dddddf0073d919b9
     INSTALL_DIR ${CMAKE_BINARY_DIR}
     CONFIGURE_COMMAND  PREFIX=<INSTALL_DIR> make cmake
     BUILD_COMMAND PREFIX=<INSTALL_DIR> MOREFLAGS=-fPIC make
