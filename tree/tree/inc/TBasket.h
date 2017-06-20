@@ -59,7 +59,7 @@ protected:
    TBranch    *fBranch;          ///<Pointer to the basket support branch
    TBuffer    *fCompressedBufferRef; ///<! Compressed buffer.
    Bool_t      fOwnsCompressedBuffer; ///<! Whether or not we own the compressed buffer.
-   Int_t       fLastWriteBufferSize; ///<! Size of the buffer last time we wrote it to disk
+   Int_t       fLastWriteBufferSize{0}; ///<! Size of the buffer last time we wrote it to disk
 
 public:
 

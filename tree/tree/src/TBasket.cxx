@@ -39,7 +39,7 @@ See picture in TTree.
 ////////////////////////////////////////////////////////////////////////////////
 /// Default contructor.
 
-TBasket::TBasket() : fCompressedBufferRef(0), fOwnsCompressedBuffer(kFALSE), fLastWriteBufferSize(0)
+TBasket::TBasket() : fCompressedBufferRef(0), fOwnsCompressedBuffer(kFALSE)
 {
    fDisplacement  = 0;
    fEntryOffset   = 0;
@@ -56,7 +56,7 @@ TBasket::TBasket() : fCompressedBufferRef(0), fOwnsCompressedBuffer(kFALSE), fLa
 ////////////////////////////////////////////////////////////////////////////////
 /// Constructor used during reading.
 
-TBasket::TBasket(TDirectory *motherDir) : TKey(motherDir),fCompressedBufferRef(0), fOwnsCompressedBuffer(kFALSE), fLastWriteBufferSize(0)
+TBasket::TBasket(TDirectory *motherDir) : TKey(motherDir),fCompressedBufferRef(0), fOwnsCompressedBuffer(kFALSE)
 {
    fDisplacement  = 0;
    fEntryOffset   = 0;
@@ -74,7 +74,7 @@ TBasket::TBasket(TDirectory *motherDir) : TKey(motherDir),fCompressedBufferRef(0
 /// Basket normal constructor, used during writing.
 
 TBasket::TBasket(const char *name, const char *title, TBranch *branch) :
-   TKey(branch->GetDirectory()),fCompressedBufferRef(0), fOwnsCompressedBuffer(kFALSE), fLastWriteBufferSize(0)
+   TKey(branch->GetDirectory()),fCompressedBufferRef(0), fOwnsCompressedBuffer(kFALSE)
 {
    SetName(name);
    SetTitle(title);
@@ -669,6 +669,9 @@ void TBasket::Reset()
    // stay the same.
 
    // Downsize the buffer if needed.
+   // See if our current buffer size is significantly larger (>2x) than the historical average.
+   // If so, try decreasing it at this flush boundary to closer to the size from OptimizeBaskets
+   // (or this historical average).
    Int_t curSize = fBufferRef->BufferSize();
    // fBufferLen at this point is already reset, so use indirect measurements
    Int_t curLen = (GetObjlen() + GetKeylen());
@@ -690,16 +693,26 @@ void TBasket::Reset()
          }
       }
    }
-   /*
-      Philippe has asked us to keep this turned off until we finish memory fragmentation studies.
-   // If fBufferRef grew since we last saw it, shrink it to 105% of the occupied size
+   // If fBufferRef grew since we last saw it, shrink it to "target memory ratio" of the occupied size
+   // This discourages us from having poorly-occupied buffers on branches with little variability.
+   //
+   // Does not help protect against a burst in event sizes, but does help in the cases where the basket
+   // size jumps from 4MB to 8MB while filling the basket, but we only end up utilizing 4.1MB.
+   //
+   // The above code block is meant to protect against extremely large events.
    if (curSize > fLastWriteBufferSize) {
       if (newSize == -1) {
-         newSize = Int_t(1.05*Float_t(fBufferRef->Length()));
+         newSize = Int_t(fBranch->GetTree()->GetTargetMemoryRatio()s*Float_t(curLen));
+         newSize = newSize + 512 - newSize % 512;  // Wiggle room and alignment, as above.
       }
-      fLastWriteBufferSize = newSize;
+      // We only bother with a resize if it saves 1KB.
+      if (newSize < fLastWriteBufferSize + 1024) {
+         newSize = -1;
+      } else {
+         fLastWriteBufferSize = newSize;
+      }
    }
-   */
+
    if (newSize != -1) {
       fBufferRef->Expand(newSize,kFALSE);     // Expand without copying the existing data.
    }

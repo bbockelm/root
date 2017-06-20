@@ -792,11 +792,13 @@ Int_t TBranch::Fill()
    // fSkipZip force one entry per buffer (old stuff still maintained for CDF)
    // Transfer full compressed buffer only
 
-   if ((fSkipZip && (lnew >= TBuffer::kMinimalSize)) || (buf->TestBit(TBufferFile::kNotDecompressed)) || ((lnew + (2 * nsize) + nbytes) >= fBasketSize)) {
-      if (fTree->TestBit(TTree::kCircular)) {
-         return nbytes;
-      }
+   if (!fTree->TestBit(TTree::kFlushAtCluster) &&
+       !fTree->TestBit(TTree::kCircular) &&
+         ((fSkipZip && (lnew >= TBuffer::kMinimalSize)) ||
+          (buf->TestBit(TBufferFile::kNotDecompressed)) ||
+          ((lnew + (2 * nsize) + nbytes) >= fBasketSize))) {
       Int_t nout = WriteBasket(basket,fWriteBasket);
+      if (nout < 0) Error("TBranch::Fill", "Failed to write out basket.\n");
       return (nout >= 0) ? nbytes : -1;
    }
    return nbytes;

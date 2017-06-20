@@ -153,6 +153,8 @@ protected:
    UInt_t         fNEntriesSinceSorting;  ///<! Number of entries processed since the last re-sorting of branches
    std::vector<std::pair<Long64_t,TBranch*>> fSortedBranches; ///<! Branches to be processed in parallel when IMT is on, sorted by average task time
    std::vector<TBranch*> fSeqBranches;    ///<! Branches to be processed sequentially when IMT is on
+   Float_t        fTargetMemoryRatio{1.2}; ///! Ratio for memory usage in uncompressed buffers versus actual occupancy.  1.0 indicates basket should be resized to exact memory usage, but causes significant memory churn.
+
 
    static Int_t     fgBranchStyle;        ///<  Old/New branch style
    static Long64_t  fgMaxTreeSize;        ///<  Maximum size of a file containing a Tree
@@ -245,7 +247,8 @@ public:
    // TTree status bits
    enum {
       kForceRead   = BIT(11),
-      kCircular    = BIT(12)
+      kCircular    = BIT(12),
+      kFlushAtCluster = BIT(13)     // If set, the branch's buffers will grow until an event cluster boundary is hit, guaranteeing a basket per cluster.  This mode does not provide any guarantee on the memory bounds in the case of extremely large events.
    };
 
    // Split level modifier
@@ -444,6 +447,7 @@ public:
    virtual TTree          *GetTree() const { return const_cast<TTree*>(this); }
    virtual TVirtualIndex  *GetTreeIndex() const { return fTreeIndex; }
    virtual Int_t           GetTreeNumber() const { return 0; }
+           Float_t         GetTargetMemoryRatio() const { return fTargetMemoryRatio; }
    virtual Int_t           GetUpdate() const { return fUpdate; }
    virtual TList          *GetUserInfo();
    // See TSelectorDraw::GetVar
@@ -558,6 +562,7 @@ public:
    virtual void            SetParallelUnzip(Bool_t opt=kTRUE, Float_t RelSize=-1);
    virtual void            SetPerfStats(TVirtualPerfStats* perf);
    virtual void            SetScanField(Int_t n = 50) { fScanField = n; } // *MENU*
+           void            SetTargetMemoryRatio(Float_t ratio) { fTargetMemoryRatio = ratio; }
    virtual void            SetTimerInterval(Int_t msec = 333) { fTimerInterval=msec; }
    virtual void            SetTreeIndex(TVirtualIndex* index);
    virtual void            SetWeight(Double_t w = 1, Option_t* option = "");
