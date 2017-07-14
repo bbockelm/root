@@ -59,7 +59,10 @@ protected:
    TBranch    *fBranch;          ///<Pointer to the basket support branch
    TBuffer    *fCompressedBufferRef; ///<! Compressed buffer.
    Bool_t      fOwnsCompressedBuffer; ///<! Whether or not we own the compressed buffer.
-   Int_t       fLastWriteBufferSize{0}; ///<! Size of the buffer last time we wrote it to disk
+   Int_t       fLastWriteBufferSize[3] = {0,0,0}; ///<! Size of the buffer last three buffers we wrote it to disk
+   ULong64_t   fResetAllocationTime{0}; ///<! Time spent reallocating baskets in microseconds during last Reset operation.
+   Bool_t      fResetAllocation{false}; ///<! True if last reset re-allocated the memory
+   Short_t     fNextBufferSizeRecord{0}; ///<! Size of the buffer last time we wrote it to disk
 
 public:
 
@@ -84,6 +87,11 @@ public:
            Int_t   ReadBasketBuffers(Long64_t pos, Int_t len, TFile *file);
            Int_t   ReadBasketBytes(Long64_t pos, TFile *file);
    virtual void    Reset();
+
+           // Time spent reseting basket sizes (typically, at event cluster boundaries), in microseconds
+           ULong64_t ResetAllocationTime() const {return fResetAllocationTime;}
+           // Count of resets performed of basket size.
+           Bool_t  ResetAllocationCount() const {return fResetAllocation;}
 
            Int_t   LoadBasketBuffers(Long64_t pos, Int_t len, TFile *file, TTree *tree = 0);
    Long64_t        CopyTo(TFile *to);

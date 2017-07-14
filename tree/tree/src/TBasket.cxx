@@ -8,6 +8,8 @@
  * For the list of contributors see $ROOTSYS/README/CREDITS.             *
  *************************************************************************/
 
+#include <chrono>
+
 #include "TBasket.h"
 #include "TBuffer.h"
 #include "TBufferFile.h"
@@ -151,6 +153,10 @@ void TBasket::AdjustSize(Int_t newsize)
    }
    fBranch->GetTree()->IncrementTotalBuffers(newsize-fBufferSize);
    fBufferSize  = newsize;
+   fLastWriteBufferSize[0] = newsize;
+   fLastWriteBufferSize[1] = 0;
+   fLastWriteBufferSize[2] = 0;
+   fNextBufferSizeRecord = 1;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -665,6 +671,10 @@ Int_t TBasket::ReadBasketBytes(Long64_t pos, TFile *file)
 
 void TBasket::Reset()
 {
+   // By default, we don't reallocate.
+   fResetAllocation = false;
+   fResetAllocationTime = 0;
+
    // Name, Title, fClassName, fBranch
    // stay the same.
 
@@ -700,22 +710,34 @@ void TBasket::Reset()
    // size jumps from 4MB to 8MB while filling the basket, but we only end up utilizing 4.1MB.
    //
    // The above code block is meant to protect against extremely large events.
-   if (curSize > fLastWriteBufferSize) {
-      if (newSize == -1) {
-         newSize = Int_t(fBranch->GetTree()->GetTargetMemoryRatio()s*Float_t(curLen));
-         newSize = newSize + 512 - newSize % 512;  // Wiggle room and alignment, as above.
-      }
-      // We only bother with a resize if it saves 1KB.
-      if (newSize < fLastWriteBufferSize + 1024) {
+
+   Float_t target_mem_ratio = fBranch->GetTree()->GetTargetMemoryRatio();
+   ssize_t max_size = std::max(fLastWriteBufferSize[0], std::max(fLastWriteBufferSize[1], fLastWriteBufferSize[2]));
+   Int_t target_size = static_cast<Int_t>(target_mem_ratio*Float_t(max_size));
+   if (max_size && (curSize > target_size) && (newSize == -1)) {
+      newSize = target_size;
+      newSize = newSize + 512 - newSize % 512;  // Wiggle room and alignment, as above.
+      // We only bother with a resize if it saves 8KB (two normal memory pages).
+      if ((newSize > curSize - 8*1024) || (static_cast<Float_t>(curSize)/static_cast<Float_t>(newSize) < target_mem_ratio)){
          newSize = -1;
-      } else {
-         fLastWriteBufferSize = newSize;
+      } else if (gDebug > 0) {
+         Info("TBasket::Reset", "Resizing to %ld bytes (was %d); last three sizes were [%d, %d, %d].", newSize, curSize, fLastWriteBufferSize[0], fLastWriteBufferSize[1], fLastWriteBufferSize[2]);
       }
    }
 
    if (newSize != -1) {
+      fResetAllocation = true;
+      std::chrono::time_point<std::chrono::system_clock> start, end;
+      start = std::chrono::high_resolution_clock::now();
       fBufferRef->Expand(newSize,kFALSE);     // Expand without copying the existing data.
+      end = std::chrono::high_resolution_clock::now();
+      auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+      fResetAllocationTime = us.count();
    }
+
+   // Record the actual occupied size of the buffer.
+   fLastWriteBufferSize[fNextBufferSizeRecord] = curLen;
+   fNextBufferSizeRecord = (fNextBufferSizeRecord+1) % 3;
 
    TKey::Reset();
 

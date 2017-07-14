@@ -153,7 +153,9 @@ protected:
    UInt_t         fNEntriesSinceSorting;  ///<! Number of entries processed since the last re-sorting of branches
    std::vector<std::pair<Long64_t,TBranch*>> fSortedBranches; ///<! Branches to be processed in parallel when IMT is on, sorted by average task time
    std::vector<TBranch*> fSeqBranches;    ///<! Branches to be processed sequentially when IMT is on
-   Float_t        fTargetMemoryRatio{1.2}; ///! Ratio for memory usage in uncompressed buffers versus actual occupancy.  1.0 indicates basket should be resized to exact memory usage, but causes significant memory churn.
+   Float_t        fTargetMemoryRatio{1.1}; ///<! Ratio for memory usage in uncompressed buffers versus actual occupancy.  1.0 indicates basket should be resized to exact memory usage, but causes significant memory churn.
+   ULong64_t      fAllocationTime{0};        ///<! Time spent reallocating basket memory buffers, in microseconds.
+   UInt_t         fAllocationCount{0};       ///<! Number of reallocations basket memory buffers.
 
 
    static Int_t     fgBranchStyle;        ///<  Old/New branch style
@@ -309,6 +311,8 @@ public:
    virtual TFriendElement *AddFriend(TTree* tree, const char* alias = "", Bool_t warn = kFALSE);
    virtual void            AddTotBytes(Int_t tot) { fTotBytes += tot; }
    virtual void            AddZipBytes(Int_t zip) { fZipBytes += zip; }
+           void            AddAllocationTime(ULong64_t time) { fAllocationTime += time; }
+           void            AddAllocationCount(UInt_t count) { fAllocationCount += count; }
    virtual Long64_t        AutoSave(Option_t* option = "");
    virtual Int_t           Branch(TCollection* list, Int_t bufsize = 32000, Int_t splitlevel = 99, const char* name = "");
    virtual Int_t           Branch(TList* list, Int_t bufsize = 32000, Int_t splitlevel = 99);
@@ -378,6 +382,8 @@ public:
    virtual Int_t           Fit(const char* funcname, const char* varexp, const char* selection = "", Option_t* option = "", Option_t* goption = "", Long64_t nentries = kMaxEntries, Long64_t firstentry = 0); // *MENU*
    virtual Int_t           FlushBaskets() const;
    virtual const char     *GetAlias(const char* aliasName) const;
+           UInt_t          GetAllocationCount() const {return fAllocationCount;}
+           ULong64_t       GetAllocationTime() const {return fAllocationTime;}
    virtual Long64_t        GetAutoFlush() const {return fAutoFlush;}
    virtual Long64_t        GetAutoSave()  const {return fAutoSave;}
    virtual TBranch        *GetBranch(const char* name);

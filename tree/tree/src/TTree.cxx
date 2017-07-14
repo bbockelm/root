@@ -828,6 +828,11 @@ TTree::TTree(const char* name, const char* title, Int_t splitlevel /* = 99 */)
 
 TTree::~TTree()
 {
+   if (fAllocationCount && (gDebug > 0)) {
+      Info("TTree::~TTree", "For tree %s, allocation count is %u.", GetName(), fAllocationCount);
+      Info("TTree::~TTree", "For tree %s, allocation time is %lluus.", GetName(), fAllocationTime);
+   }
+
    if (fDirectory) {
       // We are in a directory, which may possibly be a file.
       if (fDirectory->GetList()) {
@@ -4440,8 +4445,14 @@ Int_t TTree::Fill()
 
             //First call FlushBasket to make sure that fTotBytes is up to date.
             FlushBaskets();
-            OptimizeBaskets(fTotBytes,1,"");
-            if (gDebug > 0) Info("TTree::Fill","OptimizeBaskets called at entry %lld, fZipBytes=%lld, fFlushedBytes=%lld\n",fEntries,fZipBytes,fFlushedBytes);
+
+            // When we are in one-basket-per-cluster mode, there is no need to optimize basket:
+            // they will automatically grow to the size needed for an event cluster (with the basket)
+            // shrinking preventing them from growing too much larger than the actually-used space.
+            if (!TestBit(TTree::kFlushAtCluster)) {
+               OptimizeBaskets(fTotBytes,1,"");
+               if (gDebug > 0) Info("TTree::Fill","OptimizeBaskets called at entry %lld, fZipBytes=%lld, fFlushedBytes=%lld",fEntries,fZipBytes,fFlushedBytes);
+            }
             fFlushedBytes = fZipBytes;
             fAutoFlush    = fEntries;  // Use test on entries rather than bytes
 

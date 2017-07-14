@@ -792,7 +792,13 @@ Int_t TBranch::Fill()
    // fSkipZip force one entry per buffer (old stuff still maintained for CDF)
    // Transfer full compressed buffer only
 
-   if (!fTree->TestBit(TTree::kFlushAtCluster) &&
+   // If GetAutoFlush() is less than zero, then we are determining the end of the autocluster
+   // based upon the number of bytes already flushed.  This is incompatible with one-basket-per-cluster
+   // (since we will grow the basket indefinitely and never flush!).  Hence, we wait until the
+   // first event cluster is written out and *then* enable one-basket-per-cluster mode.
+   bool noFlushAtCluster = !fTree->TestBit(TTree::kFlushAtCluster) || (fTree->GetAutoFlush() < 0);
+
+   if (noFlushAtCluster &&
        !fTree->TestBit(TTree::kCircular) &&
          ((fSkipZip && (lnew >= TBuffer::kMinimalSize)) ||
           (buf->TestBit(TBufferFile::kNotDecompressed)) ||
@@ -2603,6 +2609,8 @@ Int_t TBranch::WriteBasket(TBasket* basket, Int_t where)
       fTotBytes += addbytes;
       fTree->AddTotBytes(addbytes);
       fTree->AddZipBytes(nout);
+      fTree->AddAllocationTime(reusebasket->ResetAllocationTime());
+      fTree->AddAllocationCount(reusebasket->ResetAllocationCount());
    }
 
    if (where==fWriteBasket) {
