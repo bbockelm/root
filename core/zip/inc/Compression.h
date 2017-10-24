@@ -28,8 +28,13 @@ namespace ROOT {
 // and memory when compressing.  LZMA memory usage is particularly
 // high for compression levels 8 and 9.
 //
-// Finally, the LZ4 package results in worse compression ratios
+// The LZ4 package results in worse compression ratios
 // than ZLIB but achieves much faster decompression rates.
+//
+// ZSTD provides fast decompression (about 3x slower than LZ4), but
+// a wide range of compression levels.  Further, it allows the
+// generation of compression dictionaries that can greatly improve
+// compression ratios.
 //
 // The current algorithms support level 1 to 9. The higher
 // the level the greater the compression and more CPU time
@@ -41,6 +46,7 @@ enum ECompressionAlgorithm {
    kLZMA,
    kOldCompressionAlgo,
    kLZ4,
+   kZSTD,
    // if adding new algorithm types,
    // keep this enum value last
    kUndefinedCompressionAlgorithm
