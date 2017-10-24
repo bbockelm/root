@@ -4,16 +4,20 @@
 # The Core library is build in the main CMakeLists.txt
 # of the core subdirectory.
 
-Set(ZipOldHeaders
+# Public headers for ROOT compression.
+Set(ZipRootHeaders
   ${CMAKE_CURRENT_SOURCE_DIR}/inc/Compression.h
   ${CMAKE_CURRENT_SOURCE_DIR}/inc/RZip.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/inc/ROOT/Compression.hxx
 )
 
-Set(ZipNewHeaders
+# ZipInternalHeaders are necessary repeats of zlib headers.
+Set(ZipInternalHeaders
   ${CMAKE_CURRENT_SOURCE_DIR}/inc/zlib.h
   ${CMAKE_CURRENT_SOURCE_DIR}/inc/zconf.h
 )
 
+# These files implement the old-style compression algorithm
 Set(ZipOldSource
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Bits.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/ZDeflate.c
@@ -24,9 +28,9 @@ Set(ZipOldSource
 # Depending on the system either the old and the new
 # or only the old compression is build
 if(builtin_zlib)
-  set(ZLIB_HEADERS ${ZipNewHeaders} ${ZipOldHeaders})
+  set(ZLIB_HEADERS ${ZipInternalHeaders} ${ZipRootHeaders})
 else()
-  set(ZLIB_HEADERS ${ZipOldHeaders})
+  set(ZLIB_HEADERS ${ZipRootHeaders})
 endif()
 set(ZLIB_SRCS ${ZipOldSource} ${CMAKE_CURRENT_SOURCE_DIR}/src/Compression.cxx ${CMAKE_CURRENT_SOURCE_DIR}/src/RZip.cxx)
 
@@ -39,7 +43,11 @@ set_property(GLOBAL APPEND PROPERTY ROOT_HEADER_TARGETS ${tgt})
 set(dst_list)
 foreach(include_file ${ZLIB_HEADERS})
   get_filename_component(incname ${include_file} NAME)
-  set(dst ${CMAKE_BINARY_DIR}/include/${incname})
+  if (${incname} STREQUAL "Compression.hxx")
+    set(dst ${CMAKE_BINARY_DIR}/include/ROOT/${incname})
+  else ()
+    set(dst ${CMAKE_BINARY_DIR}/include/${incname})
+  endif()
   add_custom_command(
     OUTPUT ${dst}
     COMMAND ${CMAKE_COMMAND} -E copy ${include_file} ${dst}
