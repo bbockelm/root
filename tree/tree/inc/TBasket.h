@@ -86,8 +86,8 @@ public:
       // The following to bits are reserved for now; when supported, set
       // kSupported = kGenerateOffsetMap | kBasketClassMap
       kGenerateOffsetMap = BIT(0),
-      // kBasketClassMap = BIT(1),
-      kSupported = kGenerateOffsetMap
+      kCompressionTraining = BIT(1),
+      kSupported = kGenerateOffsetMap | kCompressionTraining
    };
    // This enum covers IOBits that are known to this ROOT release but
    // not supported; provides a mechanism for us to have experimental
@@ -96,7 +96,7 @@ public:
    // (kUnsupported | kSupported) should result in the '|' of all IOBits.
    enum class EUnsupportedIOBits : Char_t { kUnsupported = 0 };
    // The number of known, defined IOBits.
-   static constexpr int kIOBitCount = 1;
+   static constexpr int kIOBitCount = 2;
 
    TBasket();
    TBasket(TDirectory *motherDir);
