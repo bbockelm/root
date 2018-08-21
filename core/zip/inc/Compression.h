@@ -51,6 +51,10 @@ enum ECompressionAlgorithm {
    kOldCompressionAlgo,
    /// Use LZ4 compression
    kLZ4,
+   /// Use LZMA + BitShuffle compression
+   kLZMABS,
+   /// Use LZ4 + BitShuffle compression
+   kLZ4BS,
    /// Undefined compression algorithm (must be kept the last of the list in case a new algorithm is added).
    kUndefinedCompressionAlgorithm
 };

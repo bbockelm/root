@@ -2352,12 +2352,7 @@ void TBranch::SetCompressionAlgorithm(Int_t algorithm)
       int level = fCompress % 100;
       fCompress = 100 * algorithm + level;
    }
-
-   Int_t nb = fBranches.GetEntriesFast();
-   for (Int_t i=0;i<nb;i++) {
-      TBranch *branch = (TBranch*)fBranches.UncheckedAt(i);
-      branch->SetCompressionAlgorithm(algorithm);
-   }
+   SetCompressionSettings(fCompress);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2374,12 +2369,7 @@ void TBranch::SetCompressionLevel(Int_t level)
       if (algorithm >= ROOT::kUndefinedCompressionAlgorithm) algorithm = 0;
       fCompress = 100 * algorithm + level;
    }
-
-   Int_t nb = fBranches.GetEntriesFast();
-   for (Int_t i=0;i<nb;i++) {
-      TBranch *branch = (TBranch*)fBranches.UncheckedAt(i);
-      branch->SetCompressionLevel(level);
-   }
+   SetCompressionSettings(fCompress);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2388,6 +2378,23 @@ void TBranch::SetCompressionLevel(Int_t level)
 void TBranch::SetCompressionSettings(Int_t settings)
 {
    fCompress = settings;
+   TObjArray *leaves = GetListOfLeaves();
+   if (((GetCompressionAlgorithm() == 2) || GetCompressionAlgorithm() == 3) && (leaves->GetEntriesFast() == 1)) {
+       TLeaf* leaf = (TLeaf*) GetListOfLeaves()->At(0);
+       const char *leaf_type = leaf->GetTypeName();
+       bool result = !strcmp(leaf_type, "UChar_t") ||
+                     !strcmp(leaf_type, "Char_t") ||
+                     !strcmp(leaf_type, "Bool_t") ||
+                     !strcmp(leaf_type, "Float_t") ||
+                     !strcmp(leaf_type, "Double_t") ||
+                     !strcmp(leaf_type, "Int_t") ||
+                     !strcmp(leaf_type, "UInt_t") ||
+                     !strcmp(leaf_type, "Long64_t") ||
+                     !strcmp(leaf_type, "ULong64_t");
+      if (result) {
+          fCompress += (GetCompressionAlgorithm() == 2) ? 300 : 200; // Switch to LZMABS
+      }
+   }
 
    Int_t nb = fBranches.GetEntriesFast();
    for (Int_t i=0;i<nb;i++) {
