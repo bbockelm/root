@@ -3,6 +3,7 @@ find_package(ZLIB REQUIRED)
 ROOT_GLOB_HEADERS(headers
   inc/Compression.h
   inc/RZip.h
+  inc/Bitshuffle.h
 )
 
 ROOT_GLOB_SOURCES(sources
@@ -12,6 +13,8 @@ ROOT_GLOB_SOURCES(sources
   src/ZInflate.c
   src/Compression.cxx
   src/RZip.cxx
+  src/Bitshuffle.c
+  src/Bitshuffle_iochain.c
 )
 
 ROOT_OBJECT_LIBRARY(Zip ${sources})
