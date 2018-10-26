@@ -25,6 +25,8 @@
 
 #include <memory>
 
+#include "Compression.h"
+
 #include "TNamed.h"
 
 #include "TObjArray.h"
@@ -80,7 +82,7 @@ protected:
    };
 
    static Int_t fgCount;          ///<! branch counter
-   Int_t       fCompress;         ///<  Compression level and algorithm
+   ROOT::CompressionSetting fCompress; ///<  Compression level and algorithm
    Int_t       fBasketSize;       ///<  Initial Size of  Basket Buffer
    Int_t       fEntryOffsetLen;   ///<  Initial Length of fEntryOffset table in the basket buffers
    Int_t       fWriteBasket;      ///<  Last basket number written
@@ -132,7 +134,7 @@ protected:
    void     FillLeavesImpl(TBuffer &b);
 
    void     SetSkipZip(Bool_t skip = kTRUE) { fSkipZip = skip; }
-   void     Init(const char *name, const char *leaflist, Int_t compress);
+   void     Init(const char *name, const char *leaflist, ROOT::CompressionSetting compress);
 
    TBasket *GetFreshBasket();
    TBasket *GetFreshCluster();
@@ -148,8 +150,8 @@ private:
 
 public:
    TBranch();
-   TBranch(TTree *tree, const char *name, void *address, const char *leaflist, Int_t basketsize=32000, Int_t compress=-1);
-   TBranch(TBranch *parent, const char *name, void *address, const char *leaflist, Int_t basketsize=32000, Int_t compress=-1);
+   TBranch(TTree *tree, const char *name, void *address, const char *leaflist, Int_t basketsize=32000, ROOT::CompressionSetting compress=-1);
+   TBranch(TBranch *parent, const char *name, void *address, const char *leaflist, Int_t basketsize=32000, ROOT::CompressionSetting compress=-1);
    virtual ~TBranch();
 
    virtual void      AddBasket(TBasket &b, Bool_t ondisk, Long64_t startEntry);
@@ -176,7 +178,7 @@ public:
    virtual const char* GetClassName() const;
            Int_t     GetCompressionAlgorithm() const;
            Int_t     GetCompressionLevel() const;
-           Int_t     GetCompressionSettings() const;
+           ROOT::CompressionSetting GetCompressionSettings() const;
    TDirectory       *GetDirectory() const {return fDirectory;}
    virtual Int_t     GetEntry(Long64_t entry=0, Int_t getall = 0);
    virtual Int_t     GetEntryExport(Long64_t entry, Int_t getall, TClonesArray *list, Int_t n);
@@ -252,19 +254,19 @@ public:
 //______________________________________________________________________________
 inline Int_t TBranch::GetCompressionAlgorithm() const
 {
-   return (fCompress < 0) ? -1 : fCompress / 100;
+   return static_cast<const ROOT::ECompressionAlgorithm>(fCompress);
 }
 
 //______________________________________________________________________________
 inline Int_t TBranch::GetCompressionLevel() const
 {
-   return (fCompress < 0) ? -1 : fCompress % 100;
+   return static_cast<const ROOT::ECompressionLevel>(fCompress);
 }
 
 //______________________________________________________________________________
 inline Int_t TBranch::GetCompressionSettings() const
 {
-   return (fCompress < 0) ? -1 : fCompress;
+   return static_cast<const ROOT::ECompressionSetting>(fCompress);
 }
 
 #endif

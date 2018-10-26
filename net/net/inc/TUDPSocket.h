@@ -67,7 +67,7 @@ protected:
    static ULong64_t fgBytesRecv;  // total bytes received by all socket objects
    static ULong64_t fgBytesSent;  // total bytes sent by all socket objects
 
-   TUDPSocket() : fAddress(), fBytesRecv(0), fBytesSent(0), fCompress(0),
+   TUDPSocket() : fAddress(), fBytesRecv(0), fBytesSent(0), fCompress(ROOT::kUseGlobalCompressionSetting),
                   fLocalAddress(), fRemoteProtocol(), fSecContext(0), fService(),
                   fServType(kSOCKD), fSocket(-1), fUrl(),
                   fBitsInfo(), fUUIDs(0), fLastUsageMtx(0), fLastUsage() { }
@@ -131,9 +131,9 @@ public:
    virtual Int_t         SendObject(const TObject *obj, Int_t kind = kMESS_OBJECT);
    virtual Int_t         SendRaw(const void *buffer, Int_t length,
                                  ESendRecvOptions opt = kDefault);
-   void                  SetCompressionAlgorithm(Int_t algorithm=0);
+   void                  SetCompressionAlgorithm(Int_t algorithm=ROOT::kUseGlobalCompressionSetting);
    void                  SetCompressionLevel(Int_t level=4);
-   void                  SetCompressionSettings(Int_t settings=4);
+   void                  SetCompressionSettings(Int_t settings=ROOT::kUseGlobalCompressionSetting);
    virtual Int_t         SetOption(ESockOptions opt, Int_t val);
    void                  SetRemoteProtocol(Int_t rproto) { fRemoteProtocol = rproto; }
    void                  SetSecContext(TSecContext *ctx) { fSecContext = ctx; }

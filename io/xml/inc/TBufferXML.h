@@ -12,6 +12,7 @@
 #ifndef ROOT_TBufferXML
 #define ROOT_TBufferXML
 
+#include "Compression.h"
 #include "TBufferText.h"
 #include "TXMLSetup.h"
 #include "TXMLEngine.h"
@@ -229,7 +230,7 @@ protected:
    Int_t GetCompressionSettings() const;
    void SetCompressionAlgorithm(Int_t algorithm = 0);
    void SetCompressionLevel(Int_t level = 4);
-   void SetCompressionSettings(Int_t settings = 4);
+   void SetCompressionSettings(Int_t settings = ROOT::kUseGlobalCompressionSetting);
    void SetXML(TXMLEngine *xml) { fXML = xml; }
 
    void XmlWriteBlock(XMLNodePointer_t node);

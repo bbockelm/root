@@ -140,14 +140,14 @@ TMemFile::TMemFile(const char *path, ExternalDataPtr_t data) :
 /// Usual Constructor.  See the TFile constructor for details.
 
 TMemFile::TMemFile(const char *path, Option_t *option,
-                   const char *ftitle, Int_t compress) :
+                   const char *ftitle, ROOT::CompressionSetting compress) :
    TMemFile(path, nullptr, -1, option, ftitle, compress) {}
 
 ////////////////////////////////////////////////////////////////////////////////
 /// Usual Constructor.  See the TFile constructor for details. Copy data from buffer.
 
 TMemFile::TMemFile(const char *path, char *buffer, Long64_t size, Option_t *option,
-                   const char *ftitle, Int_t compress):
+                   const char *ftitle, ROOT::CompressionSetting compress):
    TFile(path, "WEB", ftitle, compress), fBlockList(size),
    fSize(size), fSysOffset(0), fBlockSeek(&(fBlockList)), fBlockOffset(0)
 {

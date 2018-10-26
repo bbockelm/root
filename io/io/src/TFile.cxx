@@ -173,7 +173,7 @@ AddPseudoGlobals() {
 ////////////////////////////////////////////////////////////////////////////////
 /// File default Constructor.
 
-TFile::TFile() : TDirectoryFile(), fInfoCache(0)
+TFile::TFile() : TDirectoryFile(), fCompress(ROOT::kUseGlobalCompressionSetting), fInfoCache(0)
 {
    fD               = -1;
    fFree            = 0;
@@ -181,7 +181,6 @@ TFile::TFile() : TDirectoryFile(), fInfoCache(0)
    fSumBuffer       = 0;
    fSum2Buffer      = 0;
    fClassIndex      = 0;
-   fCompress        = 0;
    fProcessIDs      = 0;
    fNProcessIDs     = 0;
    fOffset          = 0;
@@ -208,7 +207,6 @@ TFile::TFile() : TDirectoryFile(), fInfoCache(0)
    fBytesRead      = 0;
    fBytesReadExtra = 0;
    fBytesWrite     = 0;
-   fCompress       = 0;
    fNbytesFree     = 0;
    fNbytesInfo     = 0;
    fSeekFree       = 0;
@@ -322,7 +320,7 @@ TFile::TFile() : TDirectoryFile(), fInfoCache(0)
 ///  in the system.rootrc file.
 ///
 
-TFile::TFile(const char *fname1, Option_t *option, const char *ftitle, Int_t compress)
+TFile::TFile(const char *fname1, Option_t *option, const char *ftitle, ROOT::CompressionSetting compress)
            : TDirectoryFile(), fUrl(fname1,kTRUE), fInfoCache(0), fOpenPhases(0)
 {
    if (!gROOT)
@@ -3765,7 +3763,7 @@ void TFile::WriteStreamerInfo()
 /// The file will be downloaded to the directory specified by SetCacheFileDir().
 
 TFile *TFile::OpenFromCache(const char *name, Option_t *, const char *ftitle,
-                   Int_t compress, Int_t netopt)
+                   ROOT::CompressionSetting compress, Int_t netopt)
 {
    TFile *f = 0;
 

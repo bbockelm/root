@@ -15,7 +15,7 @@ namespace ROOT {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-  int CompressionSettings(ECompressionAlgorithm algorithm,
+  CompressionSetting CompressionSettings(ECompressionAlgorithm algorithm,
                           int compressionLevel)
   {
     if (compressionLevel < 0) compressionLevel = 0;

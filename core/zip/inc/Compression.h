@@ -12,9 +12,7 @@
 #ifndef ROOT_Compression
 #define ROOT_Compression
 
-#if defined(__cplusplus)
 namespace ROOT {
-#endif
 
 /// The global settings depend on a global variable named R__ZipMode which can be
 /// modified by a global function named R__SetZipMode. Both are defined in Bits.h.
@@ -41,8 +39,11 @@ namespace ROOT {
 
 
 enum ECompressionAlgorithm {
-   /// Use the global compression setting
-   kUseGlobalCompressionSetting,
+   /// Some objects use this value to denote that the compression algorithm
+   /// should be inherited from the parent object (e.g., TBranch should get the algorithm from the TTree
+   kUnsetCompressionAlgorithm = -1,
+   /// Use the global compression algorithm
+   kUseGlobalCompressionAlgorithm = 0,
    /// Use ZLIB compression
    kZLIB,
    /// Use LZMA compression
@@ -55,14 +56,84 @@ enum ECompressionAlgorithm {
    kUndefinedCompressionAlgorithm
 };
 
+enum ECompressionLevel {
+   /// Some objects use this value to denote that the compression algorithm
+   /// should be inherited from the parent object
+   kUnsetCompressionLevel = -1,
+   kUseGlobalCompressionLevel = 0,
+   kDefaultZLIB = 1,
+   kDefaultLZ4 = 4,
+   kDefaultOld = 6,
+   kDefaultLZMA = 7
+};
+
+enum ECompressionSetting {
+   /// Use the global compression setting for this process; may be affected by rootrc.
+   kUseGlobalCompressionSetting = 0,
+   /// Use the compile-time default setting
+   kUseCompiledDefaultCompressionSetting = 404,
+   /// Use the default analysis setting; fast reading but poor compression ratio
+   kUseAnalysisCompressionSetting = 404,
+   /// Use the recommended general-purpose setting; moderate read / write speed and compression ratio
+   kUseGeneralPurposeCompressionSetting = 101,
+   /// Use the setting that results in the smallest files; very slow read and write
+   kUseSmallestCompressionSetting = 207
+};
+
+class CompressionSetting final {
+public:
+   CompressionSetting(int setting) : fSetting(setting) {}
+   CompressionSetting(ECompressionSetting setting) : fSetting(setting) {}
+   CompressionSetting(ECompressionAlgorithm alg, ECompressionLevel level)
+   {
+      if (alg >= kUndefinedCompressionAlgorithm) alg = kUseGlobalCompressionAlgorithm;
+      if (static_cast<int>(level) > 9) level = static_cast<ECompressionLevel>(9);
+      if (level < kUnsetCompressionLevel) level = kUnsetCompressionLevel;
+      if (level == kUnsetCompressionLevel) {
+         switch (alg) {
+            case kUnsetCompressionAlgorithm:
+               level = kUseGlobalCompressionLevel;
+            case kUseGlobalCompressionAlgorithm:
+               level = kUseGlobalCompressionLevel;
+               break;
+            case kZLIB:
+               level = kDefaultZLIB;
+               break;
+            case kLZMA:
+               level = kDefaultLZMA;
+               break;
+            case kOldCompressionAlgo:
+               level = kDefaultOld;
+               break;
+            case kLZ4:
+               level = kDefaultLZ4;
+               break;
+            case kUndefinedCompressionAlgorithm:
+               // This case should be impossible as we eliminate it above.
+               level = kUseGlobalCompressionLevel;
+         }
+      }
+      fSetting = alg * 100 + level;
+   }
+
+   operator ECompressionSetting() const {return static_cast<ECompressionSetting>(fSetting);}
+   operator ECompressionAlgorithm() const {return fSetting == -1 ? kUnsetCompressionAlgorithm : static_cast<ECompressionAlgorithm>(fSetting / 100);}
+   operator ECompressionLevel() const {return fSetting == -1 ? kUnsetCompressionLevel : static_cast<ECompressionLevel>(fSetting % 100);}
+   operator int() const __attribute__ ((deprecated)) {return fSetting;}
+   bool operator !=(CompressionSetting other) const {return fSetting != other.fSetting;}
+
+   // Non-deprecated mechanism to convert the compression setting to an integer.  Needed because we want to keep the compression
+   // setting as an Int_t internally for serialization backward compatibility.
+   int AsInt() const {return fSetting;}
+
+private:
+   int fSetting{kUseGlobalCompressionSetting};
+};
+
 /// Deprecated name, do *not* use:
-static const enum ECompressionAlgorithm kUseGlobalSetting = kUseGlobalCompressionSetting;
+static const enum ECompressionAlgorithm kUseGlobalSetting __attribute__ ((deprecated)) = kUseGlobalCompressionAlgorithm;
 
-#if defined(__cplusplus)
-
-   int CompressionSettings(ECompressionAlgorithm algorithm,
-                           int compressionLevel);
+CompressionSetting CompressionSettings(ECompressionAlgorithm algorithm, int compressionLevel);
 }
-#endif
 
 #endif
